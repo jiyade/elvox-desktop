@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Toaster } from 'react-hot-toast'
+import toast, { Toaster } from 'react-hot-toast'
+import api, { setDeviceToken } from './api/api'
+import FullScreenLoader from './components/FullScreenLoader'
 import ActivationScreen from './screens/ActivationScreen'
+import SplashScreen from './screens/SpalshScreen'
+import LockedScreen from './screens/LockedScreen'
+import NoActiveElectionScreen from './screens/NoActiveElectionScreen'
+import CountdownScreen from './screens/CountdownScreen'
 
 const ThemeProvider = ({ children }) => {
   useEffect(() => {
@@ -33,29 +39,42 @@ const ThemeProvider = ({ children }) => {
 }
 
 const App = () => {
-  const [currentScreen, setCurrentScreen] = useState('activation')
-  const [electionStatus, setElectionStatus] = useState(null)
+  //const [currentScreen, setCurrentScreen] = useState('splash')
+  const [election, setElection] = useState(null)
   const [voterData, setVoterData] = useState(null)
+  const [electionLoaded, setElectionLoaded] = useState(false)
+  const [splashFinished, setSplashFinished] = useState(false)
+  const [systemActivated, setSystemActivated] = useState(false)
+
+  const currentScreen = (() => {
+    if (!splashFinished) return 'splash'
+    if (!electionLoaded) return 'loading'
+    if (electionLoaded && !election) return 'noElection'
+    if (!['pre-voting', 'voting'].includes(election?.status)) return 'locked'
+    if (!systemActivated) return 'activation'
+    if (systemActivated && election?.status === 'pre-voting') return 'countdown'
+  })()
 
   const screens = {
-    // splash: <SplashScreen onComplete={() => setCurrentScreen('loading')} />,
-    // loading: (
-    //   <LoadingScreen
-    //     onComplete={(status) => {
-    //       setElectionStatus(status)
-    //       // Navigate based on status
-    //     }}
-    //   />
-    // ),
-    activation: (
-      <ActivationScreen
-        onActivated={() => {
-          // Navigate based on election status
+    splash: (
+      <SplashScreen
+        onComplete={() => {
+          setSplashFinished(true)
         }}
       />
-    )
-    // locked: <LockedScreen status={electionStatus} />,
-    // countdown: <CountdownScreen onVotingStart={() => setCurrentScreen('login')} />,
+    ),
+    loading: <FullScreenLoader />,
+    noElection: <NoActiveElectionScreen />,
+    locked: <LockedScreen status={election?.status} />,
+    activation: (
+      <ActivationScreen
+        electionId={election?.id}
+        onActivated={() => {
+          setSystemActivated(true)
+        }}
+      />
+    ),
+    countdown: <CountdownScreen onVotingStart={() => {}} />
     // login: (
     //   <VoterLoginScreen
     //     onLoginSuccess={(data) => {
@@ -67,7 +86,33 @@ const App = () => {
     // ballot: <BallotScreen voterData={voterData} onVoteSuccess={() => setCurrentScreen('login')} />
   }
 
-  // Render the current screen (with fallback)
+  useEffect(() => {
+    const fetchData = async () => {
+      if (electionLoaded) return
+
+      try {
+        // GET ELECTION DATA
+        const res = await api.get('/elections')
+        setElection(res.data)
+        setElectionLoaded(true)
+
+        // SET DEVICE TOKEN
+        const token = await window.electron.getDeviceToken()
+        if (token) {
+          setDeviceToken(token)
+          setSystemActivated(true)
+        }
+      } catch (err) {
+        toast.error(err.response?.data?.error || 'error', {
+          id: 'data-fetch-error'
+        })
+        console.log(err)
+      }
+    }
+
+    fetchData()
+  }, [splashFinished, electionLoaded])
+
   return (
     <ThemeProvider>
       <div className="min-h-dvh w-full bg-bg-light dark:bg-bg-dark text-primary-light dark:text-primary-dark py-3 transition-all duration-100 flex flex-col">
@@ -86,8 +131,7 @@ const App = () => {
         <div className="flex flex-col py-3 px-4 flex-1 min-h-0">
           {/* <Header /> */}
           <div className="max-w-400 mx-auto w-full flex flex-col flex-1 min-h-0">
-            {/* {screens[currentScreen] || <LoadingScreen />} */}
-            {screens[currentScreen]}
+            {screens[currentScreen] || <FullScreenLoader />}
           </div>
         </div>
       </div>
