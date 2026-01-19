@@ -3,16 +3,20 @@ import toast from 'react-hot-toast'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
-  withCredentials: true,
   timeout: 30000
 })
+
+export const setDeviceToken = (token) => {
+  if (!token) return
+  api.defaults.headers.common['X-Device-Token'] = token
+}
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     // Timeout error
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      toast.error('Request timeout. Please try again.', {
+      toast.error('Request timeout. Please try again', {
         id: 'timeout-error'
       })
       return Promise.reject(error)
@@ -26,15 +30,15 @@ api.interceptors.response.use(
 
     // Network error (server unreachable)
     if (!error.response) {
-      toast.error('Cannot reach server. Please check your connection.', {
+      toast.error('Cannot reach server. Please check your connection', {
         id: 'network-error'
       })
       return Promise.reject(error)
     }
 
     // Session expired / unauthorized
-    if (error.response?.status === 401) {
-      toast.error('Session expired. Please reactivate the system.', {
+    if (error.response?.status === 401 && !error.response?.data?.error) {
+      toast.error('System authorization lost. Please reactivate', {
         id: 'session-expired'
       })
       // Trigger session expired event for app-wide handling
@@ -43,7 +47,7 @@ api.interceptors.response.use(
 
     // Server error
     if (error.response?.status >= 500) {
-      toast.error('Server error. Please try again.', {
+      toast.error('Server error. Please try again', {
         id: 'server-error'
       })
     }
