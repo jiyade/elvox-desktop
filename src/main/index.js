@@ -1,74 +1,147 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { getDeviceToken, saveDeviceToken } from './deviceToken'
+import { getDeviceId } from './deviceId'
 
-function createWindow() {
-  // Create the browser window.
+const createWindow = () => {
+  // Create the browser window with security settings
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
-    show: false,
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    // ===== DEVELOPMENT SETTINGS (Comment out for production) =====
+    width: 1200,
+    height: 800,
+    show: false, // Don't show until ready (prevents flash)
+
+    // ===== PRODUCTION SETTINGS (Uncomment for production) =====
+    // fullscreen: true, // Lock to fullscreen
+    // frame: false, // Remove window frame/controls
+    // resizable: false, // Prevent resizing
+    // minimizable: false, // Prevent minimizing
+
+    // ===== COMMON SETTINGS =====
+    autoHideMenuBar: true, // Hide menu bar (File, Edit, etc.)
+    ...(process.platform === 'linux' ? { icon } : {}), // Set icon on Linux
+
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      preload: join(__dirname, '../preload/index.js'), // Load preload script
+      sandbox: false, // Disable sandbox for IPC access
+      nodeIntegration: false, // Security: Don't expose Node.js to renderer
+      contextIsolation: true // Security: Isolate renderer context
+
+      // ===== PRODUCTION SETTINGS (Uncomment for production) =====
+      // devTools: false, // Disable DevTools in production
     }
   })
 
+  // Show window when ready (prevents white flash on startup)
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+  // Security: Prevent opening new windows (open links in external browser instead)
+  mainWindow.webContents.setWindowOpenHandler(() => {
+    // If someone tries to open a link, open it in system browser
+    // This prevents popup windows and potential security issues
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
+  // ===== PRODUCTION SETTINGS (Uncomment for production) =====
+  // Disable right-click context menu
+  // mainWindow.webContents.on('context-menu', (e) => {
+  //   e.preventDefault()
+  // })
+
+  // Prevent navigation away from app (security measure)
+  // mainWindow.webContents.on('will-navigate', (e, url) => {
+  //   if (!url.startsWith(mainWindow.webContents.getURL())) {
+  //     e.preventDefault()
+  //   }
+  // })
+
+  // Load the app (dev server in development, local file in production)
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']) // Dev: Vite server
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html')) // Prod: Built files
+  }
+
+  // ===== DEVELOPMENT ONLY (Comment out for production) =====
+  // Open DevTools automatically in development
+  if (is.dev) {
+    mainWindow.webContents.openDevTools()
   }
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
+// App initialization - runs when Electron is ready
 app.whenReady().then(() => {
-  // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  // Set app identifier (used by Windows for notifications, taskbar, etc.)
+  // Change 'com.electron' to your app ID like 'com.elvox.voting'
+  // electronApp.setAppUserModelId('com.elvox.voting')
 
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+  // ===== IPC HANDLERS =====
+
+  // Handle app quit request from renderer (for Exit button)
+  ipcMain.on('quit-app', () => {
+    app.quit()
   })
 
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  //Get device unique id
+  ipcMain.handle('get-device-id', () => {
+    return getDeviceId()
+  })
 
+  // Get device token
+  ipcMain.handle('get-device-token', () => {
+    return getDeviceToken()
+  })
+
+  // Set device token
+  ipcMain.handle('save-device-token', (_, token) => {
+    saveDeviceToken(token)
+  })
+
+  // Create the main window
   createWindow()
 
+  // macOS specific: Re-create window when dock icon is clicked
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// Quit app when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
+  // On macOS, apps typically stay open even when all windows are closed
+  // On Windows/Linux, quit the app
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.
+// ===== PRODUCTION SETTINGS (Uncomment for production) =====
+// Disable keyboard shortcuts (F11, F12, Ctrl+R, etc.)
+// app.on('browser-window-created', (_, window) => {
+//   window.webContents.on('before-input-event', (event, input) => {
+//     // Block F11 (fullscreen toggle)
+//     if (input.key === 'F11') {
+//       event.preventDefault()
+//     }
+//     // Block F12 (DevTools)
+//     if (input.key === 'F12') {
+//       event.preventDefault()
+//     }
+//     // Block Ctrl+Shift+I (DevTools)
+//     if (input.control && input.shift && input.key === 'I') {
+//       event.preventDefault()
+//     }
+//     // Block Ctrl+R / Cmd+R (Reload)
+//     if ((input.control || input.meta) && input.key === 'r') {
+//       event.preventDefault()
+//     }
+//     // Block Ctrl+W / Cmd+W (Close window)
+//     if ((input.control || input.meta) && input.key === 'w') {
+//       event.preventDefault()
+//     }
+//   })
+// })

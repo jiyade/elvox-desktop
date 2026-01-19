@@ -1,20 +1,25 @@
-import { contextBridge } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge, ipcRenderer } from 'electron'
 
-// Custom APIs for renderer
-const api = {}
+// Define custom APIs that will be available in React as window.electron
+const api = {
+  // Quit the application (for Exit button)
+  quitApp: () => {
+    ipcRenderer.send('quit-app')
+  },
+  getDeviceId: () => ipcRenderer.invoke('get-device-id'),
+  getDeviceToken: () => ipcRenderer.invoke('get-device-token'),
+  saveDeviceToken: (token) => ipcRenderer.invoke('save-device-token', token)
+}
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
+// Safely expose APIs to renderer process (React)
+// This makes them available as window.electron in React components
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
+    contextBridge.exposeInMainWorld('electron', api)
   } catch (error) {
-    console.error(error)
+    console.error('Failed to expose electron APIs:', error)
   }
 } else {
-  window.electron = electronAPI
-  window.api = api
+  // Fallback if context isolation is disabled
+  window.electron = api
 }
