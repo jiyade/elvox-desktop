@@ -24,8 +24,6 @@
   --color-secondary-button-hover-light: #42495a;
   --color-link: #6950ab;
   --color-link-hover: #7c59c9;
-  --otp-text: var(--color-primary-light);
-  --otp-trail: var(--color-field-light);
 }
 
 body {
@@ -97,6 +95,24 @@ input:-webkit-autofill {
   input[type='number'] {
     -moz-appearance: textfield;
     appearance: textfield;
+  }
+
+  @keyframes pulseIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    50% {
+      transform: scale(1.02);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-pulse-in {
+    animation: pulseIn 1s ease-out;
   }
 }
 
