@@ -7,17 +7,26 @@ import api from '../api/api'
 
 const ActivationScreen = ({ onActivated, electionId }) => {
   const [isLoading, setIsLoading] = useState(false)
+  const [deviceName, setDeviceName] = useState('')
   const [secretKey, setSecretKey] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(null)
 
-  const inpRef = useRef(null)
+  const deviceNameRef = useRef(null)
+  const secretKeyRef = useRef(null)
 
   const activateSystem = async () => {
-    if (!secretKey) {
-      setError('Secret key is required')
+    if (!deviceName || !secretKey) {
+      setError({
+        deviceName: deviceName ? '' : 'Device name is required',
+        secretKey: secretKey ? '' : 'Secret key is required'
+      })
+
+      if (!deviceName) deviceNameRef?.current?.focus()
+      else secretKeyRef?.current?.focus()
+
       return
     }
-    setError('')
+    setError(null)
 
     try {
       setIsLoading(true)
@@ -25,6 +34,7 @@ const ActivationScreen = ({ onActivated, electionId }) => {
       const deviceId = await window.electron.getDeviceId()
 
       const res = await api.post(`/elections/${electionId}/secret-key/verify`, {
+        deviceName,
         secretKey,
         deviceId
       })
@@ -44,9 +54,9 @@ const ActivationScreen = ({ onActivated, electionId }) => {
   }
 
   useEffect(() => {
-    if (!inpRef.current) return
+    if (!deviceNameRef.current) return
 
-    inpRef.current.focus()
+    deviceNameRef.current.focus()
   }, [])
 
   return (
@@ -61,6 +71,50 @@ const ActivationScreen = ({ onActivated, electionId }) => {
             System Activation
           </h2>
           <div className="flex flex-col flex-1 gap-4 w-full">
+            <div className="flex flex-col gap-1 space-y-1">
+              <label htmlFor="device-name" className="text-sm">
+                Enter the device name
+              </label>
+              <input
+                type="text"
+                id="device-name"
+                value={deviceName}
+                onChange={(e) => setDeviceName(e.target.value)}
+                className={`outline-none border-none rounded-sm text-sm w-full h-10 px-3 placeholder:text-secondary-light dark:placeholder:text-secondary-dark ${
+                  isLoading
+                    ? 'cursor-not-allowed bg-[#c0c0c2] dark:bg-[#2a2e34] text-[#454649] dark:text-[#c7cad2]'
+                    : 'bg-field-light dark:bg-field-dark text-primary-light dark:text-primary-dark'
+                }`}
+                placeholder="Enter the device name"
+                disabled={isLoading}
+                ref={deviceNameRef}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (deviceName === '') {
+                      setError((errors) => ({
+                        ...errors,
+                        deviceName: 'Device name is required'
+                      }))
+                      return
+                    } else {
+                      setError((errors) => ({
+                        ...errors,
+                        deviceName: ''
+                      }))
+                    }
+                    if (secretKey === '') {
+                      secretKeyRef?.current?.focus()
+                      return
+                    }
+
+                    activateSystem()
+                  }
+                }}
+              />
+              {error?.deviceName && (
+                <p className="text-xs text-red-500 mt-1">{error?.deviceName}</p>
+              )}
+            </div>
             <div className="flex flex-col gap-1 space-y-1">
               <label htmlFor="secret-key" className="text-sm">
                 Enter the secret key
@@ -77,16 +131,16 @@ const ActivationScreen = ({ onActivated, electionId }) => {
                 }`}
                 placeholder="Enter the secret key"
                 disabled={isLoading}
-                ref={inpRef}
+                ref={secretKeyRef}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') activateSystem()
                 }}
               />
-              {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+              {error?.secretKey && <p className="text-xs text-red-500 mt-1">{error?.secretKey}</p>}
             </div>
             <Button
               text="Activate"
-              className="p-2 text-sm bg-accent hover:bg-button-hover"
+              className="p-2.5 mt-2 text-sm bg-accent hover:bg-button-hover"
               type="button"
               onClick={activateSystem}
             />
