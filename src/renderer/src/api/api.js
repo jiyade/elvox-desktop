@@ -7,8 +7,11 @@ const api = axios.create({
 })
 
 export const setDeviceToken = (token) => {
-  if (!token) return
-  api.defaults.headers.common['X-Device-Token'] = token
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+  } else {
+    delete api.defaults.headers.common['Authorization']
+  }
 }
 
 api.interceptors.response.use(
