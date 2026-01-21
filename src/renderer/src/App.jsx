@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 import api, { setDeviceToken } from './api/api'
 import FullScreenLoader from './components/FullScreenLoader'
@@ -7,6 +7,7 @@ import SplashScreen from './screens/SpalshScreen'
 import LockedScreen from './screens/LockedScreen'
 import NoActiveElectionScreen from './screens/NoActiveElectionScreen'
 import CountdownScreen from './screens/CountdownScreen'
+import VoterLoginScreen from './screens/VoterLoginScreen'
 
 const ThemeProvider = ({ children }) => {
   useEffect(() => {
@@ -45,15 +46,22 @@ const App = () => {
   const [electionLoaded, setElectionLoaded] = useState(false)
   const [splashFinished, setSplashFinished] = useState(false)
   const [systemActivated, setSystemActivated] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const hasVerifiedRef = useRef(false)
 
   const currentScreen = (() => {
     if (!splashFinished) return 'splash'
     if (!electionLoaded) return 'loading'
-    if (electionLoaded && !election) return 'noElection'
-    if (!['pre-voting', 'voting'].includes(election?.status)) return 'locked'
+    if (!election) return 'noElection'
+    if (!['pre-voting', 'voting'].includes(election.status)) return 'locked'
     if (!systemActivated) return 'activation'
-    if (systemActivated && election?.status === 'pre-voting') return 'countdown'
+    if (election.status === 'pre-voting') return 'countdown'
+    if (!voterData) return 'login'
+    return 'voting'
   })()
+
+  const effectiveCurrentScreen = isLoading ? 'loading' : currentScreen
 
   const screens = {
     splash: (
@@ -74,15 +82,14 @@ const App = () => {
         }}
       />
     ),
-    countdown: <CountdownScreen onVotingStart={() => {}} />
-    // login: (
-    //   <VoterLoginScreen
-    //     onLoginSuccess={(data) => {
-    //       setVoterData(data)
-    //       setCurrentScreen('ballot')
-    //     }}
-    //   />
-    // ),
+    countdown: <CountdownScreen onVotingStart={() => {}} />,
+    login: (
+      <VoterLoginScreen
+        onLoginSuccess={(data) => {
+          setVoterData(data)
+        }}
+      />
+    )
     // ballot: <BallotScreen voterData={voterData} onVoteSuccess={() => setCurrentScreen('login')} />
   }
 
@@ -95,23 +102,54 @@ const App = () => {
         const res = await api.get('/elections')
         setElection(res.data)
         setElectionLoaded(true)
-
-        // SET DEVICE TOKEN
-        const token = await window.electron.getDeviceToken()
-        if (token) {
-          setDeviceToken(token)
-          setSystemActivated(true)
-        }
       } catch (err) {
-        toast.error(err.response?.data?.error || 'error', {
+        toast.error(err.response?.data?.error, {
           id: 'data-fetch-error'
         })
-        console.log(err)
       }
     }
 
     fetchData()
   }, [splashFinished, electionLoaded])
+
+  useEffect(() => {
+    if (currentScreen === 'splash') return
+    if (hasVerifiedRef.current) return
+
+    hasVerifiedRef.current = true
+
+    const verifyToken = async () => {
+      try {
+        setIsLoading(true)
+        const token = await window.electron.getDeviceToken()
+
+        if (!token) {
+          setSystemActivated(false)
+          return
+        }
+
+        setDeviceToken(token)
+
+        await api.get('/verify')
+
+        setSystemActivated(true)
+      } catch (err) {
+        toast.error(err.response?.data?.error, {
+          id: 'system-verify-error'
+        })
+
+        await window.electron.removeDeviceToken()
+
+        setDeviceToken(null)
+        setSystemActivated(false)
+        delete api.defaults.headers.common['Authorization']
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    verifyToken()
+  }, [currentScreen])
 
   return (
     <ThemeProvider>
@@ -131,7 +169,7 @@ const App = () => {
         <div className="flex flex-col py-3 px-4 flex-1 min-h-0">
           {/* <Header /> */}
           <div className="max-w-400 mx-auto w-full flex flex-col flex-1 min-h-0">
-            {screens[currentScreen] || <FullScreenLoader />}
+            {screens[effectiveCurrentScreen] || <FullScreenLoader />}
           </div>
         </div>
       </div>

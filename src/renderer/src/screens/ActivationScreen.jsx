@@ -3,7 +3,7 @@ import FullScreenLoader from '../components/FullScreenLoader'
 import { useEffect, useRef, useState } from 'react'
 import Button from '../components/Button'
 import toast from 'react-hot-toast'
-import api from '../api/api'
+import api, { setDeviceToken } from '../api/api'
 
 const ActivationScreen = ({ onActivated, electionId }) => {
   const [isLoading, setIsLoading] = useState(false)
@@ -40,6 +40,7 @@ const ActivationScreen = ({ onActivated, electionId }) => {
       })
 
       await window.electron.saveDeviceToken(res?.data?.deviceToken)
+      setDeviceToken(res?.data?.deviceToken)
       toast.success(res?.data?.message)
 
       onActivated()
