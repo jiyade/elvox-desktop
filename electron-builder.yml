@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: elvox-desktop
+appId: com.elvox.desktop
+productName: Elvox
 directories:
   buildResources: build
 files:

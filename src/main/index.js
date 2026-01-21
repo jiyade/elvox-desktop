@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { getDeviceToken, saveDeviceToken } from './deviceToken'
+import { getDeviceToken, removeDeviceToken, saveDeviceToken } from './deviceToken'
 import { getDeviceId } from './deviceId'
 
 const createWindow = () => {
@@ -101,11 +101,17 @@ app.whenReady().then(() => {
     saveDeviceToken(token)
   })
 
+  // Remove device token
+  ipcMain.handle('remove-device-token', () => {
+    removeDeviceToken()
+    return null
+  })
+
   // Create the main window
   createWindow()
 
   // macOS specific: Re-create window when dock icon is clicked
-  app.on('activate', function () {
+  app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })

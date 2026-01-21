@@ -2,19 +2,45 @@ import fs from 'fs'
 import path from 'path'
 import { app } from 'electron'
 
-const AUTH_DIR = path.join(app.getPath('userData'), 'auth')
-const TOKEN_FILE = path.join(AUTH_DIR, 'device-token.json')
+const resolvePaths = () => {
+  const userData = app.getPath('userData')
+  const authDir = path.join(userData, 'auth')
+  const tokenFile = path.join(authDir, 'device-token.json')
+
+  return { authDir, tokenFile }
+}
 
 export const saveDeviceToken = (token) => {
-  fs.mkdirSync(AUTH_DIR, { recursive: true })
-  fs.writeFileSync(TOKEN_FILE, JSON.stringify({ token }), 'utf8')
+  const { authDir, tokenFile } = resolvePaths()
+
+  fs.mkdirSync(authDir, { recursive: true })
+  fs.writeFileSync(tokenFile, JSON.stringify({ token }), 'utf8')
 }
 
 export const getDeviceToken = () => {
   try {
-    if (!fs.existsSync(TOKEN_FILE)) return null
-    return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8')).token
-  } catch {
+    const { tokenFile } = resolvePaths()
+
+    if (!fs.existsSync(tokenFile)) return null
+
+    const raw = fs.readFileSync(tokenFile, 'utf8')
+    const parsed = JSON.parse(raw)
+
+    return parsed?.token ?? null
+  } catch (err) {
+    console.error('Failed to read device token:', err)
     return null
+  }
+}
+
+export const removeDeviceToken = () => {
+  try {
+    const { tokenFile } = resolvePaths()
+
+    if (fs.existsSync(tokenFile)) {
+      fs.unlinkSync(tokenFile)
+    }
+  } catch (err) {
+    console.error('Failed to remove device token:', err)
   }
 }

@@ -8,7 +8,8 @@ const api = {
   },
   getDeviceId: () => ipcRenderer.invoke('get-device-id'),
   getDeviceToken: () => ipcRenderer.invoke('get-device-token'),
-  saveDeviceToken: (token) => ipcRenderer.invoke('save-device-token', token)
+  saveDeviceToken: (token) => ipcRenderer.invoke('save-device-token', token),
+  removeDeviceToken: () => ipcRenderer.invoke('remove-device-token')
 }
 
 // Safely expose APIs to renderer process (React)
