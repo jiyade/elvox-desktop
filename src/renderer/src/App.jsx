@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 import api, { setDeviceToken } from './api/api'
 import FullScreenLoader from './components/FullScreenLoader'
@@ -9,6 +9,9 @@ import NoActiveElectionScreen from './screens/NoActiveElectionScreen'
 import CountdownScreen from './screens/CountdownScreen'
 import VoterLoginScreen from './screens/VoterLoginScreen'
 import Header from './components/Header'
+import BallotScreen from './screens/BallotScreen'
+import OfflineScreen from './screens/OfflineScreen'
+import axios from 'axios'
 
 const ThemeProvider = ({ children }) => {
   useEffect(() => {
@@ -46,20 +49,21 @@ const App = () => {
   const [electionLoaded, setElectionLoaded] = useState(false)
   const [hasVerified, setHasVerified] = useState(false)
   const [splashFinished, setSplashFinished] = useState(false)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [backendAlive, setBackendAlive] = useState(false)
   const [systemActivated, setSystemActivated] = useState(false)
   const [deviceInfo, setDeviceInfo] = useState(null)
 
-  const hasVerifiedRef = useRef(false)
-
   const currentScreen = (() => {
     if (!splashFinished) return 'splash'
+    if (!isOnline || !backendAlive) return 'offline'
     if (!electionLoaded || !hasVerified) return 'loading'
     if (!election) return 'noElection'
     if (!['pre-voting', 'voting'].includes(election.status)) return 'locked'
     if (!systemActivated) return 'activation'
     if (election.status === 'pre-voting') return 'countdown'
     if (!voterData) return 'voterLogin'
-    return 'voting'
+    return 'ballot'
   })()
 
   const fetchElection = async () => {
@@ -75,6 +79,15 @@ const App = () => {
     }
   }
 
+  const ping = async () => {
+    try {
+      await axios.get(`${import.meta.env.VITE_API_URL}/healthz`)
+      setBackendAlive(true)
+    } catch {
+      setBackendAlive(false)
+    }
+  }
+
   const screens = {
     splash: (
       <SplashScreen
@@ -83,6 +96,7 @@ const App = () => {
         }}
       />
     ),
+    offline: <OfflineScreen reason={isOnline ? 'backend_unreachable' : 'offline'} ping={ping} />,
     loading: <FullScreenLoader />,
     noElection: <NoActiveElectionScreen />,
     locked: <LockedScreen status={election?.status} />,
@@ -109,18 +123,19 @@ const App = () => {
           setVoterData(data)
         }}
       />
-    )
-    // ballot: <BallotScreen voterData={voterData} onVoteSuccess={() => setCurrentScreen('login')} />
+    ),
+    ballot: <BallotScreen voterData={voterData} onVoteSuccess={() => setVoterData(null)} />
   }
 
   useEffect(() => {
+    if (!isOnline || !backendAlive) return
+
     if (!electionLoaded) fetchElection()
-  }, [electionLoaded])
+  }, [electionLoaded, isOnline, backendAlive])
 
   useEffect(() => {
-    if (hasVerifiedRef.current) return
-
-    hasVerifiedRef.current = true
+    if (!isOnline || !backendAlive) return
+    if (hasVerified) return
 
     const verifyToken = async () => {
       try {
@@ -157,7 +172,32 @@ const App = () => {
     }
 
     verifyToken()
-  }, [currentScreen])
+  }, [isOnline, backendAlive, hasVerified])
+
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true)
+    const goOffline = () => {
+      setIsOnline(false)
+      setBackendAlive(false)
+    }
+
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isOnline) return
+
+    ping()
+    const id = setInterval(ping, 5000)
+
+    return () => clearInterval(id)
+  }, [isOnline])
 
   return (
     <ThemeProvider>
@@ -175,14 +215,15 @@ const App = () => {
           }}
         />
         <div className="flex flex-col py-3 px-4 flex-1 min-h-0">
-          {/* <Header /> */}
           <div className="max-w-400 mx-auto w-full flex flex-col flex-1 min-h-0">
-            <Header
-              currentScreen={currentScreen}
-              electionName={election?.name}
-              systemActivated={systemActivated}
-              deviceInfo={deviceInfo}
-            />
+            {isOnline && backendAlive && (
+              <Header
+                currentScreen={currentScreen}
+                electionName={election?.name}
+                systemActivated={systemActivated}
+                deviceInfo={deviceInfo}
+              />
+            )}
             {screens[currentScreen] || <FullScreenLoader />}
           </div>
         </div>
