@@ -8,6 +8,7 @@ import LockedScreen from './screens/LockedScreen'
 import NoActiveElectionScreen from './screens/NoActiveElectionScreen'
 import CountdownScreen from './screens/CountdownScreen'
 import VoterLoginScreen from './screens/VoterLoginScreen'
+import Header from './components/Header'
 
 const ThemeProvider = ({ children }) => {
   useEffect(() => {
@@ -40,28 +41,39 @@ const ThemeProvider = ({ children }) => {
 }
 
 const App = () => {
-  //const [currentScreen, setCurrentScreen] = useState('splash')
   const [election, setElection] = useState(null)
   const [voterData, setVoterData] = useState(null)
   const [electionLoaded, setElectionLoaded] = useState(false)
+  const [hasVerified, setHasVerified] = useState(false)
   const [splashFinished, setSplashFinished] = useState(false)
   const [systemActivated, setSystemActivated] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [deviceInfo, setDeviceInfo] = useState(null)
 
   const hasVerifiedRef = useRef(false)
 
   const currentScreen = (() => {
     if (!splashFinished) return 'splash'
-    if (!electionLoaded) return 'loading'
+    if (!electionLoaded || !hasVerified) return 'loading'
     if (!election) return 'noElection'
     if (!['pre-voting', 'voting'].includes(election.status)) return 'locked'
     if (!systemActivated) return 'activation'
     if (election.status === 'pre-voting') return 'countdown'
-    if (!voterData) return 'login'
+    if (!voterData) return 'voterLogin'
     return 'voting'
   })()
 
-  const effectiveCurrentScreen = isLoading ? 'loading' : currentScreen
+  const fetchElection = async () => {
+    try {
+      // GET ELECTION DATA
+      const res = await api.get('/elections')
+      setElection(res.data)
+      setElectionLoaded(true)
+    } catch (err) {
+      toast.error(err.response?.data?.error, {
+        id: 'data-fetch-error'
+      })
+    }
+  }
 
   const screens = {
     splash: (
@@ -77,14 +89,22 @@ const App = () => {
     activation: (
       <ActivationScreen
         electionId={election?.id}
-        onActivated={() => {
+        onActivated={(info) => {
           setSystemActivated(true)
+          setDeviceInfo(info)
         }}
       />
     ),
-    countdown: <CountdownScreen onVotingStart={() => {}} />,
-    login: (
+    countdown: (
+      <CountdownScreen
+        onCountdownFinish={fetchElection}
+        votingStartsAt={election?.voting_start}
+        status={election?.status}
+      />
+    ),
+    voterLogin: (
       <VoterLoginScreen
+        electionId={election?.id}
         onLoginSuccess={(data) => {
           setVoterData(data)
         }}
@@ -94,33 +114,16 @@ const App = () => {
   }
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (electionLoaded) return
-
-      try {
-        // GET ELECTION DATA
-        const res = await api.get('/elections')
-        setElection(res.data)
-        setElectionLoaded(true)
-      } catch (err) {
-        toast.error(err.response?.data?.error, {
-          id: 'data-fetch-error'
-        })
-      }
-    }
-
-    fetchData()
-  }, [splashFinished, electionLoaded])
+    if (!electionLoaded) fetchElection()
+  }, [electionLoaded])
 
   useEffect(() => {
-    if (currentScreen === 'splash') return
     if (hasVerifiedRef.current) return
 
     hasVerifiedRef.current = true
 
     const verifyToken = async () => {
       try {
-        setIsLoading(true)
         const token = await window.electron.getDeviceToken()
 
         if (!token) {
@@ -130,21 +133,26 @@ const App = () => {
 
         setDeviceToken(token)
 
-        await api.get('/verify')
+        const res = await api.get('/verify')
 
         setSystemActivated(true)
+        setDeviceInfo({ deviceId: res?.data?.deviceId, deviceName: res?.data?.deviceName })
       } catch (err) {
-        toast.error(err.response?.data?.error, {
+        const code = err.response?.data?.code
+
+        if (code === 'DEVICE_REVOKED') {
+          await window.electron.removeDeviceToken()
+        }
+
+        toast.error(err.response?.data?.error || 'Something went wrong', {
           id: 'system-verify-error'
         })
-
-        await window.electron.removeDeviceToken()
 
         setDeviceToken(null)
         setSystemActivated(false)
         delete api.defaults.headers.common['Authorization']
       } finally {
-        setIsLoading(false)
+        setHasVerified(true)
       }
     }
 
@@ -169,7 +177,13 @@ const App = () => {
         <div className="flex flex-col py-3 px-4 flex-1 min-h-0">
           {/* <Header /> */}
           <div className="max-w-400 mx-auto w-full flex flex-col flex-1 min-h-0">
-            {screens[effectiveCurrentScreen] || <FullScreenLoader />}
+            <Header
+              currentScreen={currentScreen}
+              electionName={election?.name}
+              systemActivated={systemActivated}
+              deviceInfo={deviceInfo}
+            />
+            {screens[currentScreen] || <FullScreenLoader />}
           </div>
         </div>
       </div>
