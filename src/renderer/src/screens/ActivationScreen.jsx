@@ -1,4 +1,3 @@
-import Logo from '../components/Logo'
 import FullScreenLoader from '../components/FullScreenLoader'
 import { useEffect, useRef, useState } from 'react'
 import Button from '../components/Button'
@@ -43,7 +42,7 @@ const ActivationScreen = ({ onActivated, electionId }) => {
       setDeviceToken(res?.data?.deviceToken)
       toast.success(res?.data?.message)
 
-      onActivated()
+      onActivated({ deviceId, deviceName })
     } catch (err) {
       toast.error(err.response?.data?.error, {
         id: 'system-activate-error'
@@ -64,9 +63,6 @@ const ActivationScreen = ({ onActivated, electionId }) => {
     <div className="flex flex-1">
       <div className="flex flex-col justify-center gap-10 items-center w-full relative">
         <title>System Activation</title>
-        <div className="">
-          <Logo width={150} height={150} />
-        </div>
         <div className="w-11/12 md:w-9/12 lg:w-7/12 xl:w-5/12 2xl:w-4/12 bg-card-light dark:bg-card-dark rounded-sm shadow-lg flex flex-col items-center gap-6 px-10 py-11">
           <h2 className={`text-primary-light dark:text-primary-dark text-center font-bold text-xl`}>
             System Activation
