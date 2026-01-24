@@ -47,7 +47,6 @@ const ActivationScreen = ({ onActivated, electionId }) => {
       toast.error(err.response?.data?.error, {
         id: 'system-activate-error'
       })
-      console.log(err)
     } finally {
       setIsLoading(false)
     }
