@@ -11,16 +11,16 @@ const Header = ({ currentScreen, electionName, systemActivated, deviceInfo }) =>
       </div>
 
       {!systemActivated && (
-        <div className="flex items-center gap-1 text-base">
-          <span className="text-red-500">●</span>
-          <span>Not activated</span>
+        <div className="flex items-center">
+          <span className="bg-red-400/40 dark:bg-red-400/20 text-red-600 dark:text-red-400 ring-1 ring-red-400/30 inline-block px-3 py-1 rounded-xl text-xs font-medium">
+            Not activated
+          </span>
         </div>
       )}
       {systemActivated && (
         <div className="flex items-center gap-4">
           <p>{deviceInfo?.deviceName}</p>
-          <p className="flex items-center gap-1 text-base">
-            <span className="text-green-500">●</span>
+          <p className="bg-green-400/30 dark:bg-green-400/20 text-green-500 dark:text-green-400 ring-1 ring-green-400/30 inline-block px-3 py-1 rounded-xl text-xs font-medium">
             <span>Activated</span>
           </p>
         </div>
