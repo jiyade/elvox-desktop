@@ -36,13 +36,13 @@ const VoterLoginScreen = ({ onLoginSuccess, electionId }) => {
         electionId
       })
 
-      const { votingToken } = res.data
+      const { votingToken, classId } = res.data
 
       if (!votingToken) throw new Error('Voting token missing')
 
       toast.success('Verification successful. You can now cast your vote')
 
-      onLoginSuccess({ admno, votingToken })
+      onLoginSuccess({ admno, classId, votingToken })
     } catch (err) {
       const message = err.response?.data?.error || err.message || 'Something went wrong'
 
