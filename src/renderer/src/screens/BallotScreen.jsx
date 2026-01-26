@@ -34,7 +34,6 @@ const BallotScreen = ({ voterData, electionId, onFinish }) => {
       setIsLoading(true)
 
       await api.post(`/elections/${electionId}/vote`, {
-        admno: voterData.admno,
         votingToken: voterData.votingToken,
         votes: {
           general: selectedCandidates?.general?.ballot_entry_id,
