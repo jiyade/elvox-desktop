@@ -124,7 +124,13 @@ const App = () => {
         }}
       />
     ),
-    ballot: <BallotScreen voterData={voterData} onVoteSuccess={() => setVoterData(null)} />
+    ballot: (
+      <BallotScreen
+        voterData={voterData}
+        electionId={election?.id}
+        onFinish={() => setVoterData(null)}
+      />
+    )
   }
 
   useEffect(() => {
