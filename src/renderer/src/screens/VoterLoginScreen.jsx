@@ -51,6 +51,8 @@ const VoterLoginScreen = ({ onLoginSuccess, electionId }) => {
       })
     } finally {
       setIsLoading(false)
+      setAdmno('')
+      setOtp('')
     }
   }
 
