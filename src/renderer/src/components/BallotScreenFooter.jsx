@@ -41,7 +41,7 @@ const BallotScreenFooter = ({
       <div className="flex w-60s items-center gap-3">
         {activeCategory === 'general' ? (
           <Button
-            className="py-2 px-8 text-sm bg-secondary-button hover:bg-secondary-button-hover-light dark:hover:bg-secondary-button-hover"
+            className="py-2 px-8 text-sm bg-secondary-button-light dark:bg-secondary-button-dark hover:bg-secondary-button-hover-light dark:hover:bg-secondary-button-hover-dark"
             onClick={() => setActiveCategory('reserved')}
             disabled={showConfirmation || hasVoted || !selectedCandidates?.general}
           >
@@ -49,7 +49,7 @@ const BallotScreenFooter = ({
           </Button>
         ) : (
           <Button
-            className="py-2 px-8 text-sm bg-secondary-button hover:bg-secondary-button-hover-light dark:hover:bg-secondary-button-hover"
+            className="py-2 px-8 text-sm bg-secondary-button-light dark:bg-secondary-button-dark hover:bg-secondary-button-hover-light dark:hover:bg-secondary-button-hover-dark"
             onClick={() => setActiveCategory('general')}
             disabled={showConfirmation || hasVoted}
           >
