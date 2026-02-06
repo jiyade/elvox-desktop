@@ -44,7 +44,7 @@ const BallotScreen = ({ voterData, electionId, onFinish }) => {
       setHasVoted(true)
 
       // PLAY BEEP SOUND
-      const audio = new Audio(new URL('../assets/sounds/vote-cast.mp3', import.meta.url).href)
+      const audio = new Audio('/sounds/vote-cast.mp3')
       audio.onended = () => {
         onFinish()
       }
