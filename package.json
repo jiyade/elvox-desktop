@@ -5,6 +5,17 @@
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",
+  "build": {
+    "appId": "com.elvox.voting",
+    "productName": "Elvox Voting",
+    "icon": "resources/icon",
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
