@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 import api, { setDeviceToken } from './api/api'
 import FullScreenLoader from './components/FullScreenLoader'
@@ -53,6 +53,8 @@ const App = () => {
   const [backendAlive, setBackendAlive] = useState(false)
   const [systemActivated, setSystemActivated] = useState(false)
   const [deviceInfo, setDeviceInfo] = useState(null)
+
+  const revokeSSERef = useRef(null)
 
   const currentScreen = (() => {
     if (!splashFinished) return 'splash'
@@ -143,6 +145,44 @@ const App = () => {
     if (!isOnline || !backendAlive) return
     if (hasVerified) return
 
+    const connectRevokeSSE = async () => {
+      if (!election?.id) return
+      if (revokeSSERef.current) return
+      console.log('call')
+      const token = await window.electron.getDeviceToken()
+      if (!token) return
+
+      const url = `${import.meta.env.VITE_API_URL}/desktop/elections/${election?.id}/sse/revoke?token=${encodeURIComponent(token)}`
+
+      const es = new EventSource(url)
+
+      revokeSSERef.current = es
+
+      es.onmessage = async (event) => {
+        const data = JSON.parse(event.data)
+
+        if (data.action === 'revoke') {
+          es.close()
+          revokeSSERef.current = null
+
+          await window.electron.removeDeviceToken()
+
+          toast.error('This voting system has been revoked by the admin', {
+            id: 'revoke-system'
+          })
+
+          setDeviceToken(null)
+          setSystemActivated(false)
+          delete api.defaults.headers.common['Authorization']
+        }
+      }
+
+      es.onerror = () => {
+        es.close()
+        revokeSSERef.current = null
+      }
+    }
+
     const verifyToken = async () => {
       try {
         const token = await window.electron.getDeviceToken()
@@ -158,6 +198,8 @@ const App = () => {
 
         setSystemActivated(true)
         setDeviceInfo({ deviceId: res?.data?.deviceId, deviceName: res?.data?.deviceName })
+
+        await connectRevokeSSE()
       } catch (err) {
         const code = err.response?.data?.code
 
@@ -178,7 +220,12 @@ const App = () => {
     }
 
     verifyToken()
-  }, [isOnline, backendAlive, hasVerified])
+
+    return () => {
+      revokeSSERef.current?.close()
+      revokeSSERef.current = null
+    }
+  }, [isOnline, backendAlive, hasVerified, election?.id])
 
   useEffect(() => {
     const goOnline = () => setIsOnline(true)
