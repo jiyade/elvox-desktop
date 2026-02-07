@@ -7,6 +7,7 @@ import Candidate from '../components/Candidate'
 import ConfirmVote from '../components/ConfirmVote'
 import BallotScreenFooter from '../components/BallotScreenFooter'
 import CandidatesContainer from '../components/CandidatesContainer'
+import voteCastSound from '../assets/sounds/vote-cast.mp3'
 
 const semToYear = (sem) => {
   if (sem <= 2) return '1st Year'
@@ -44,14 +45,22 @@ const BallotScreen = ({ voterData, electionId, onFinish }) => {
       setHasVoted(true)
 
       // PLAY BEEP SOUND
-      const audio = new Audio('/sounds/vote-cast.mp3')
-      audio.onended = () => {
+      const audio = new Audio(voteCastSound)
+
+      let done = false
+      const finish = () => {
+        if (done) return
+        done = true
         onFinish()
       }
 
       toast.success('Vote cast successfully', { id: 'cast-vote-success' })
 
-      audio.play()
+      audio.onended = finish
+      audio.onerror = finish
+      audio.play().catch(finish)
+
+      setTimeout(finish, 1500)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Something went wrong', {
         id: 'cast-vote-error'
