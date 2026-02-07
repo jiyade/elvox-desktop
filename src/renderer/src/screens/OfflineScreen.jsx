@@ -1,7 +1,18 @@
+import axios from 'axios'
 import Button from '../components/Button'
 import Logo from '../components/Logo'
 
-const OfflineScreen = ({ reason, ping }) => {
+const OfflineScreen = ({ reason, setBackendAlive }) => {
+  const ping = async () => {
+    try {
+      await axios.get(`${import.meta.env.VITE_API_URL}/healthz`)
+
+      setBackendAlive(true)
+    } catch {
+      setBackendAlive(false)
+    }
+  }
+
   if (reason === 'offline')
     return (
       <div className="flex items-center justify-center flex-1">
