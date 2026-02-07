@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 import api, { setDeviceToken } from './api/api'
+import ThemeProvider from './components/ThemeProvider'
 import FullScreenLoader from './components/FullScreenLoader'
 import ActivationScreen from './screens/ActivationScreen'
 import SplashScreen from './screens/SpalshScreen'
@@ -12,36 +13,6 @@ import Header from './components/Header'
 import BallotScreen from './screens/BallotScreen'
 import OfflineScreen from './screens/OfflineScreen'
 import axios from 'axios'
-
-const ThemeProvider = ({ children }) => {
-  useEffect(() => {
-    const root = window.document.documentElement
-
-    const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)')
-
-    if (darkModeQuery.matches) {
-      root.classList.add('dark')
-    } else {
-      root.classList.remove('dark')
-    }
-
-    const handleThemeChange = (e) => {
-      if (e.matches) {
-        root.classList.add('dark')
-      } else {
-        root.classList.remove('dark')
-      }
-    }
-
-    darkModeQuery.addEventListener('change', handleThemeChange)
-
-    return () => {
-      darkModeQuery.removeEventListener('change', handleThemeChange)
-    }
-  }, [])
-
-  return children
-}
 
 const App = () => {
   const [election, setElection] = useState(null)
@@ -81,15 +52,6 @@ const App = () => {
     }
   }
 
-  const ping = async () => {
-    try {
-      await axios.get(`${import.meta.env.VITE_API_URL}/healthz`)
-      setBackendAlive(true)
-    } catch {
-      setBackendAlive(false)
-    }
-  }
-
   const screens = {
     splash: (
       <SplashScreen
@@ -98,10 +60,15 @@ const App = () => {
         }}
       />
     ),
-    offline: <OfflineScreen reason={isOnline ? 'backend_unreachable' : 'offline'} ping={ping} />,
+    offline: (
+      <OfflineScreen
+        reason={isOnline ? 'backend_unreachable' : 'offline'}
+        setBackendAlive={setBackendAlive}
+      />
+    ),
     loading: <FullScreenLoader />,
     noElection: <NoActiveElectionScreen />,
-    locked: <LockedScreen status={election?.status} />,
+    locked: <LockedScreen status={election?.status} systemActivated={systemActivated} />,
     activation: (
       <ActivationScreen
         electionId={election?.id}
@@ -148,7 +115,7 @@ const App = () => {
     const connectRevokeSSE = async () => {
       if (!election?.id) return
       if (revokeSSERef.current) return
-      console.log('call')
+
       const token = await window.electron.getDeviceToken()
       if (!token) return
 
@@ -246,11 +213,43 @@ const App = () => {
   useEffect(() => {
     if (!isOnline) return
 
+    const ping = async () => {
+      if (!backendAlive) {
+        try {
+          await axios.get(`${import.meta.env.VITE_API_URL}/healthz`)
+
+          setBackendAlive(true)
+        } catch {
+          setBackendAlive(false)
+        }
+
+        return
+      }
+
+      if (election) {
+        try {
+          const res = await axios.get(`${import.meta.env.VITE_API_URL}/desktop/elections`)
+
+          if (
+            new Date(res?.data?.updated_at).getTime() !== new Date(election?.updated_at).getTime()
+          ) {
+            setElection(res.data)
+          } else if (!res.data) {
+            setElection(null)
+          }
+
+          setBackendAlive(true)
+        } catch {
+          setBackendAlive(false)
+        }
+      }
+    }
+
     ping()
     const id = setInterval(ping, 5000)
 
     return () => clearInterval(id)
-  }, [isOnline])
+  }, [isOnline, election, backendAlive])
 
   return (
     <ThemeProvider>
