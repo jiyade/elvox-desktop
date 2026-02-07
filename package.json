@@ -9,6 +9,12 @@
     "appId": "com.elvox.voting",
     "productName": "Elvox Voting",
     "icon": "resources/icon",
+    "files": [
+      "out/**/*"
+    ],
+    "asarUnpack": [
+      "out/renderer/assets/sounds/**/*"
+    ],
     "win": {
       "target": "nsis"
     },
