@@ -1,3 +1,5 @@
+import generateInitialAvatar from '../utils/generateInitialAvatar'
+
 const Candidate = ({ candidate, selected, onClick, tabIndex }) => {
   return (
     <button
@@ -14,7 +16,7 @@ const Candidate = ({ candidate, selected, onClick, tabIndex }) => {
         <>
           <div className="flex flex-col items-center gap-2">
             <img
-              src={candidate?.profile_pic}
+              src={candidate?.profile_pic ?? generateInitialAvatar(candidate?.name)}
               alt={candidate?.name}
               className="w-24 h-24 rounded-full"
             />
