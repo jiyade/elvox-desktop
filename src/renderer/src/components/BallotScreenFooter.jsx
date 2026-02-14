@@ -1,17 +1,18 @@
 import Button from './Button'
 
 const BallotScreenFooter = ({
-  hasSelectedBothCategories,
+  hasCompletedSelection,
   selectedCandidates,
   activeCategory,
   showConfirmation,
   hasVoted,
   setActiveCategory,
-  setShowConfirmation
+  setShowConfirmation,
+  hasReserved
 }) => {
   return (
     <div className="flex items-center justify-between mt-3">
-      {hasSelectedBothCategories && (
+      {hasCompletedSelection && hasReserved && (
         <div className="flex  gap-2 text-sm">
           <p>Selected:</p>
           <div className="flex flex-col gap-1">
@@ -28,7 +29,7 @@ const BallotScreenFooter = ({
           </div>
         </div>
       )}
-      {!hasSelectedBothCategories && (
+      {(!hasCompletedSelection || !hasReserved) && (
         <p className="text-sm">
           Selected:{' '}
           {selectedCandidates?.general
@@ -39,7 +40,7 @@ const BallotScreenFooter = ({
         </p>
       )}
       <div className="flex w-60s items-center gap-3">
-        {activeCategory === 'general' ? (
+        {activeCategory === 'general' && hasReserved ? (
           <Button
             className="py-2 px-8 text-sm bg-secondary-button-light dark:bg-secondary-button-dark hover:bg-secondary-button-hover-light dark:hover:bg-secondary-button-hover-dark"
             onClick={() => setActiveCategory('reserved')}
@@ -47,7 +48,7 @@ const BallotScreenFooter = ({
           >
             Next
           </Button>
-        ) : (
+        ) : hasReserved ? (
           <Button
             className="py-2 px-8 text-sm bg-secondary-button-light dark:bg-secondary-button-dark hover:bg-secondary-button-hover-light dark:hover:bg-secondary-button-hover-dark"
             onClick={() => setActiveCategory('general')}
@@ -55,12 +56,12 @@ const BallotScreenFooter = ({
           >
             Previous
           </Button>
-        )}
-        {hasSelectedBothCategories && (
+        ) : null}
+        {(hasReserved ? hasCompletedSelection : !!selectedCandidates?.general) && (
           <Button
             className="py-2 px-8 text-sm bg-accent hover:bg-button-hover"
             onClick={() => setShowConfirmation(true)}
-            disabled={showConfirmation || hasVoted || !hasSelectedBothCategories}
+            disabled={showConfirmation || hasVoted || !hasCompletedSelection}
           >
             Vote
           </Button>

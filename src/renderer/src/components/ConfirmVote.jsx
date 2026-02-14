@@ -33,11 +33,13 @@ const ConfirmVote = ({ isOpen, setIsOpen, candidateNames, handleVote, isLoading 
               <span>{candidateNames?.general}</span>
             </div>
 
-            <div className="grid grid-cols-[8ch_2ch_auto] px-3 w-full">
-              <span>Reserved</span>
-              <span>-</span>
-              <span>{candidateNames?.reserved}</span>
-            </div>
+            {candidateNames.reserved && (
+              <div className="grid grid-cols-[8ch_2ch_auto] px-3 w-full">
+                <span>Reserved</span>
+                <span>-</span>
+                <span>{candidateNames?.reserved}</span>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex justify-center gap-3 w-full">

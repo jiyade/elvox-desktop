@@ -17,16 +17,26 @@ const semToYear = (sem) => {
 }
 
 const BallotScreen = ({ voterData, electionId, onFinish }) => {
-  const [candidates, setCandidates] = useState([])
+  const [candidates, setCandidates] = useState(null)
   const [classData, setClassData] = useState(null)
-  const [selectedCandidates, setSelectedCandidates] = useState({ general: null, reserved: null })
+  const [selectedCandidates, setSelectedCandidates] = useState({ general: null })
   const [activeCategory, setActiveCategory] = useState('general')
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [hasVoted, setHasVoted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  const hasSelectedBothCategories =
-    selectedCandidates?.general !== null && selectedCandidates?.reserved !== null
+  const hasReserved = Array.isArray(candidates?.reserved)
+
+  const hasCompletedSelection = hasReserved
+    ? selectedCandidates?.general !== null && selectedCandidates?.reserved !== null
+    : selectedCandidates?.general !== null
+
+  const candidateNames = {
+    general: selectedCandidates?.general?.is_nota ? 'NOTA' : selectedCandidates?.general?.name,
+    ...(hasReserved && {
+      reserved: selectedCandidates?.reserved?.is_nota ? 'NOTA' : selectedCandidates?.reserved?.name
+    })
+  }
 
   const handleVote = async () => {
     if (hasVoted) return
@@ -34,12 +44,16 @@ const BallotScreen = ({ voterData, electionId, onFinish }) => {
     try {
       setIsLoading(true)
 
+      const votes = {
+        general: selectedCandidates.general?.ballot_entry_id,
+        ...(hasReserved && {
+          reserved: selectedCandidates.reserved?.ballot_entry_id
+        })
+      }
+
       await api.post(`/elections/${electionId}/vote`, {
         votingToken: voterData.votingToken,
-        votes: {
-          general: selectedCandidates?.general?.ballot_entry_id,
-          reserved: selectedCandidates?.reserved?.ballot_entry_id
-        }
+        votes
       })
 
       setHasVoted(true)
@@ -65,6 +79,9 @@ const BallotScreen = ({ voterData, electionId, onFinish }) => {
       toast.error(err.response?.data?.error || 'Something went wrong', {
         id: 'cast-vote-error'
       })
+      if (err.response?.data?.code) {
+        onFinish()
+      }
     } finally {
       setIsLoading(false)
       setShowConfirmation(false)
@@ -96,10 +113,25 @@ const BallotScreen = ({ voterData, electionId, onFinish }) => {
     fetchCandidates()
   }, [electionId, voterData.classId])
 
+  useEffect(() => {
+    if (!candidates) return
+
+    setSelectedCandidates({
+      general: null,
+      ...(hasReserved ? { reserved: null } : {})
+    })
+  }, [candidates, hasReserved])
+
+  useEffect(() => {
+    if (!hasReserved && activeCategory === 'reserved') {
+      setActiveCategory('general')
+    }
+  }, [hasReserved, activeCategory])
+
   return (
     <div className="flex flex-1 py-3">
       <div className="flex flex-col justify-center flex-1">
-        {Object.keys(candidates)?.length > 0 && !isLoading && (
+        {candidates && Object.keys(candidates)?.length > 0 && !isLoading && (
           <div className="flex flex-col flex-1 gap-6 items-center">
             <div className="flex w-full items-center">
               <h2 className="font-semibold text-lg">
@@ -109,14 +141,18 @@ const BallotScreen = ({ voterData, electionId, onFinish }) => {
 
             <div className="flex flex-col w-full lg:max-w-6xl mt-4 px-4 flex-1 gap-2 divide-gray-500 divide-y overflow-hidden">
               <h3 className="text-center font-semibold text-lg pb-2">
-                {activeCategory === 'general' ? 'General Candidates' : 'Reserved Candidates'}
+                {activeCategory === 'reserved' && hasReserved
+                  ? 'Reserved Candidates'
+                  : 'General Candidates'}
               </h3>
 
               <div className="overflow-hidden flex-1">
                 <div
-                  className={`flex h-full w-[200%] transition-transform duration-300 ease-in-out ${
-                    activeCategory === 'general' ? 'translate-x-0' : '-translate-x-1/2'
-                  }`}
+                  className={`flex h-full transition-transform duration-300 ease-in-out ${
+                    hasReserved && activeCategory === 'reserved'
+                      ? '-translate-x-1/2'
+                      : 'translate-x-0'
+                  } ${hasReserved ? 'w-[200%]' : 'w-full'}`}
                 >
                   <CandidatesContainer>
                     {candidates?.general?.map((candidate) => (
@@ -134,39 +170,42 @@ const BallotScreen = ({ voterData, electionId, onFinish }) => {
                       />
                     ))}
                   </CandidatesContainer>
-                  <CandidatesContainer>
-                    {candidates?.reserved?.map((candidate) => (
-                      <Candidate
-                        key={candidate?.ballot_entry_id}
-                        candidate={candidate}
-                        selected={selectedCandidates?.reserved}
-                        onClick={() =>
-                          setSelectedCandidates((selected) => ({
-                            ...selected,
-                            reserved: candidate
-                          }))
-                        }
-                        tabIndex={activeCategory === 'reserved' ? 0 : -1}
-                      />
-                    ))}
-                  </CandidatesContainer>
+                  {hasReserved && (
+                    <CandidatesContainer>
+                      {candidates?.reserved?.map((candidate) => (
+                        <Candidate
+                          key={candidate?.ballot_entry_id}
+                          candidate={candidate}
+                          selected={selectedCandidates?.reserved}
+                          onClick={() =>
+                            setSelectedCandidates((selected) => ({
+                              ...selected,
+                              reserved: candidate
+                            }))
+                          }
+                          tabIndex={activeCategory === 'reserved' ? 0 : -1}
+                        />
+                      ))}
+                    </CandidatesContainer>
+                  )}
                 </div>
               </div>
 
               <BallotScreenFooter
-                hasSelectedBothCategories={hasSelectedBothCategories}
+                hasCompletedSelection={hasCompletedSelection}
                 selectedCandidates={selectedCandidates}
                 activeCategory={activeCategory}
                 showConfirmation={showConfirmation}
                 hasVoted={hasVoted}
                 setActiveCategory={setActiveCategory}
                 setShowConfirmation={setShowConfirmation}
+                hasReserved={hasReserved}
               />
             </div>
           </div>
         )}
 
-        {Object.keys(candidates)?.length === 0 && !isLoading && (
+        {!candidates && !isLoading && (
           <div className="flex flex-col items-center justify-center gap-3">
             <p className="text-base lg:text-lg">No candidates available for your class</p>
             <Button
@@ -183,14 +222,7 @@ const BallotScreen = ({ voterData, electionId, onFinish }) => {
           isLoading={isLoading}
           isOpen={showConfirmation}
           setIsOpen={setShowConfirmation}
-          candidateNames={{
-            general: selectedCandidates?.general?.is_nota
-              ? 'NOTA'
-              : selectedCandidates?.general?.name,
-            reserved: selectedCandidates?.reserved?.is_nota
-              ? 'NOTA'
-              : selectedCandidates?.reserved?.name
-          }}
+          candidateNames={candidateNames}
           handleVote={handleVote}
         />
       )}
